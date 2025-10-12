@@ -41,4 +41,7 @@ public class Card {
     @Column(nullable = false)
     private String cardHolder;
 
+    @Column(nullable = false)
+    private boolean blockingRequest = false;
+
 }

@@ -9,8 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-public class CardDTO {
-
+public class AdminCardDTO {
     private Long id;
 
     @NotBlank
@@ -26,8 +25,4 @@ public class CardDTO {
     private LocalDateTime expiredAt;
 
     private boolean blockingRequest;
-
-    public String getCardNumber() {
-        return "**** **** **** " + cardNumber.substring(12);
-    }
 }
