@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: card_manage_db
+    environment:
+      POSTGRES_DB: card_manage_system
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: card_manage_app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/card_manage_system
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      APP_JWT_SECRET: UNU62HBauS6mNy7HCpaxi7Th126k7MBhPR5Sr9rQFlY=
+      APP_JWT_EXPIRATION: 3600000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
