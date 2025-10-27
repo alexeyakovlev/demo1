@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -63,19 +64,14 @@ public class CardService {
 
     public Page<AdminCardDTO> getAllCards(Pageable pageable) {
         Page<Card> cardsPage = cardRepository.findAll(pageable);
-        Page<AdminCardDTO> cardDTOSPage = cardsPage.map(card -> CardMapper.toAdminCardDTO(card));
-        return cardDTOSPage;
+        return cardsPage.map(CardMapper::toAdminCardDTO);
     }
 
     public Set<CardDTO> getCurrentUserCards(UserDetails userDetails) throws UserNotFoundException {
         User currentUser = userService.getUserByUsername(userDetails.getUsername());
-        Set<Card> cards = currentUser.getCards();
-        Set<CardDTO> cardDTOS = new HashSet<>();
-        for (Card card : cards) {
-            CardDTO cardDTO = CardMapper.toCardDTO(card);
-            cardDTOS.add(cardDTO);
-        }
-        return cardDTOS;
+        return currentUser.getCards().stream()
+                .map(CardMapper::toCardDTO)
+                .collect(Collectors.toSet());
     }
 
     public CardDTO getCurrentUserCardByNumber(UserDetails userDetails, String cardNumber)
@@ -89,7 +85,6 @@ public class CardService {
         if (!card.getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedCardAccesException("You don't have access to this card");
         }
-
         return CardMapper.toCardDTO(card);
     }
 
@@ -104,13 +99,9 @@ public class CardService {
     public Set<AdminCardDTO> getUserCardsForAdmin(Long id) throws UserNotFoundException {
         User user = userRepository.findById(id).
                 orElseThrow(() -> new UserNotFoundException("User with id " + id + " not found"));
-        Set<Card> cards = user.getCards();
-        Set<AdminCardDTO> adminCardDTOS = new HashSet<>();
-        for (Card card : cards) {
-            AdminCardDTO adminCardDTO = CardMapper.toAdminCardDTO(card);
-            adminCardDTOS.add(adminCardDTO);
-        }
-        return adminCardDTOS;
+        return user.getCards().stream()
+                .map(CardMapper::toAdminCardDTO)
+                .collect(Collectors.toSet());
     }
 
     @Transactional
@@ -135,7 +126,7 @@ public class CardService {
         }
 
         Card card = cardRepository.findByCardNumber(cardNumber);
-        return card.getStatus() == CardStatus.ACTIVE;
+        return card.getStatus() != CardStatus.ACTIVE;
     }
 
     @Transactional
@@ -152,10 +143,10 @@ public class CardService {
             throw new UnauthorizedCardAccesException("You don't have access to this card");
         }
         Card cardTo =  cardRepository.findByCardNumber(transferDTO.getCardTwo());
-        if (!isActiveCard(transferDTO.getCardOne())) {
+        if (isActiveCard(transferDTO.getCardOne())) {
             throw new CardNotActiveException("Card with cardNumber " + transferDTO.getCardOne() + " is not active");
         }
-        if (!isActiveCard(transferDTO.getCardTwo())) {
+        if (isActiveCard(transferDTO.getCardTwo())) {
             throw new CardNotActiveException("Card with cardNumber " + transferDTO.getCardTwo() + " is not active");
         }
         if (cardFrom.getBalance().compareTo(transferDTO.getAmount()) < 0) {
@@ -177,7 +168,7 @@ public class CardService {
             throw new UnauthorizedCardAccesException("You don't have access to this card");
         }
         Card card =  cardRepository.findByCardNumber(cardOperationDTO.getCardNumber());
-        if (!isActiveCard(cardOperationDTO.getCardNumber())) {
+        if (isActiveCard(cardOperationDTO.getCardNumber())) {
             throw new CardNotActiveException("Card with cardNumber " + cardOperationDTO.getCardNumber() +
                     " is not active");
         }
@@ -196,7 +187,7 @@ public class CardService {
             throw new UnauthorizedCardAccesException("You don't have access to this card");
         }
         Card card =  cardRepository.findByCardNumber(cardOperationDTO.getCardNumber());
-        if (!isActiveCard(cardOperationDTO.getCardNumber())) {
+        if (isActiveCard(cardOperationDTO.getCardNumber())) {
             throw new CardNotActiveException("Card with cardNumber " + cardOperationDTO.getCardNumber() +
                     " is not active");
         }
@@ -212,11 +203,9 @@ public class CardService {
     @Scheduled(cron = "0 0 2 * * ?")
     public void periodDailyExpirationCheck() {
         LocalDateTime now = LocalDateTime.now();
-        List<Card> cardsToExpire = cardRepository.findCardsForAutoExpiration(now);
-
-        for (Card card : cardsToExpire) {
-            card.setStatus(CardStatus.EXPIRED);
-        }
+        List<Card> cardsToExpire = cardRepository.findCardsForAutoExpiration(now).stream()
+                .peek(card -> card.setStatus(CardStatus.EXPIRED))
+                .toList();
         cardRepository.saveAll(cardsToExpire);
     }
 
@@ -247,11 +236,8 @@ public class CardService {
     }
 
     public Set<AdminCardDTO> getCardsWithBlockingRequest() {
-        List<Card> cardsWithBlockingRequest = cardRepository.findCardsWithBlockRequest();
-        Set<AdminCardDTO> adminCardDTOs = new HashSet<>();
-        for (Card card : cardsWithBlockingRequest) {
-            adminCardDTOs.add(CardMapper.toAdminCardDTO(card));
-        }
-        return adminCardDTOs;
+        return cardRepository.findCardsWithBlockRequest().stream()
+                .map(CardMapper::toAdminCardDTO)
+                .collect(Collectors.toSet());
     }
 }
